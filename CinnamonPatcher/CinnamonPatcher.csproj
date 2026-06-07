@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net46</TargetFramework>
+    <AssemblyName>CinnamonPatcher</AssemblyName>
+    <RootNamespace>CinnamonPatcher</RootNamespace>
+    <LangVersion>9</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Nullable>disable</Nullable>
+    <OutputPath>bin\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <UCHfolder Condition="'$(UCHfolder)' == ''">D:\Program Files\Steam\steamapps\common\Ultimate Chicken Horse\</UCHfolder>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx" Private="false">
+      <HintPath>$(UCHfolder)BepInEx\core\BepInEx.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil" Private="false">
+      <HintPath>$(UCHfolder)BepInEx\core\Mono.Cecil.dll</HintPath>
+    </Reference>
+    <Reference Include="netstandard" Private="false">
+      <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\netstandard.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

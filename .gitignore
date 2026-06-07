@@ -1,0 +1,15 @@
+# Build outputs
+obj/
+plugins/
+CinnamonPatcher/bin/
+CinnamonPatcher/obj/
+
+# Visual Studio
+.vs/
+*.user
+*.user.props
+*.suo
+
+# NuGet
+packages/
+*.nupkg

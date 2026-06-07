@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net46</TargetFramework>
+    <AssemblyName>Cinnamon</AssemblyName>
+    <RootNamespace>Cinnamon</RootNamespace>
+    <LangVersion>9</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <UCHfolder Condition="'$(UCHfolder)' == ''">D:\Program Files\Steam\steamapps\common\Ultimate Chicken Horse\</UCHfolder>
+    <OutputPath>plugins\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx" Private="false">
+      <HintPath>$(UCHfolder)BepInEx\core\BepInEx.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine" Private="false">
+      <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule" Private="false">
+      <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule" Private="false">
+      <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule" Private="false">
+      <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+
+    <Reference Include="Assembly-CSharp" Private="false">
+      <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="com.unity.multiplayer-hlapi.Runtime" Private="false">
+      <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\com.unity.multiplayer-hlapi.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="netstandard" Private="false">
+      <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\netstandard.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil" Private="false">
+      <HintPath>$(UCHfolder)BepInEx\core\Mono.Cecil.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <CinnamonPluginsDir>$(UCHfolder)BepInEx\plugins\Cinnamon</CinnamonPluginsDir>
+    <PostBuildEvent>if not exist "$(CinnamonPluginsDir)" mkdir "$(CinnamonPluginsDir)"
+copy "Cinnamon.dll" "$(CinnamonPluginsDir)\Cinnamon.dll" /y</PostBuildEvent>
+  </PropertyGroup>
+
+  <!-- Exclude CinnamonPatcher source from Cinnamon's own compilation -->
+  <ItemGroup>
+    <Compile Remove="CinnamonPatcher\**" />
+    <EmbeddedResource Remove="CinnamonPatcher\**" />
+    <None Remove="CinnamonPatcher\**" />
+  </ItemGroup>
+
+  <!-- Build CinnamonPatcher first so its DLL exists to embed -->
+  <ItemGroup>
+    <ProjectReference Include="CinnamonPatcher\CinnamonPatcher.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- Embed the patcher DLL inside Cinnamon.dll — extracted to BepInEx/patchers/ on every game launch -->
+  <ItemGroup>
+    <EmbeddedResource Include="CinnamonPatcher\bin\CinnamonPatcher.dll">
+      <LogicalName>CinnamonPatcher.dll</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>
