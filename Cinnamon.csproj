@@ -26,6 +26,9 @@
     <Reference Include="UnityEngine.IMGUIModule" Private="false">
       <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule" Private="false">
+      <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.InputLegacyModule" Private="false">
       <HintPath>$(UCHfolder)UltimateChickenHorse_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
     </Reference>
@@ -41,6 +44,9 @@
     </Reference>
     <Reference Include="Mono.Cecil" Private="false">
       <HintPath>$(UCHfolder)BepInEx\core\Mono.Cecil.dll</HintPath>
+    </Reference>
+    <Reference Include="0Harmony" Private="false">
+      <HintPath>$(UCHfolder)BepInEx\core\0Harmony.dll</HintPath>
     </Reference>
   </ItemGroup>
 

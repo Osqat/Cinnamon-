@@ -1,23 +1,28 @@
 using BepInEx;
 using BepInEx.Logging;
 using Cinnamon.UI;
+using HarmonyLib;
 using System;
 using System.IO;
+using System.Reflection;
 
-[assembly: System.Reflection.AssemblyVersion("0.9.0")]
+[assembly: System.Reflection.AssemblyVersion("0.10.0")]
 [assembly: Cinnamon.AutoUpdate("Osqat/Cinnamon-")]
 
 namespace Cinnamon
 {
-    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.9.0")]
+    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.10.0" + PreRelease)]
     public class Plugin : BaseUnityPlugin
     {
+        internal const string PreRelease = "-beta"; // set to "" for stable releases
         internal static ManualLogSource Log;
+        internal static string VersionString => Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + PreRelease;
 
         void Awake()
         {
             Log = Logger;
             Log.LogInfo("[Cinnamon] loaded.");
+            new Harmony("com.osqat.cinnamon").PatchAll();
         }
 
         void Start()

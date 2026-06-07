@@ -70,7 +70,7 @@ namespace Cinnamon
             string json;
             try
             {
-                using (var wc = new WebClient())
+                using (var wc = new TimedWebClient())
                 {
                     wc.Proxy = null;
                     wc.Headers.Add(HttpRequestHeader.UserAgent, "UCH-CinnamonUpdater/1.0");
@@ -106,7 +106,7 @@ namespace Cinnamon
             string pendingPath = dllPath + ".pending";
             try
             {
-                using (var wc = new WebClient())
+                using (var wc = new TimedWebClient())
                 {
                     wc.Proxy = null;
                     wc.Headers.Add(HttpRequestHeader.UserAgent, "UCH-CinnamonUpdater/1.0");
@@ -117,6 +117,16 @@ namespace Cinnamon
             catch (Exception ex)
             {
                 log.LogWarning($"[Cinnamon] Failed to download {dllName}: {ex.Message}");
+            }
+        }
+
+        class TimedWebClient : WebClient
+        {
+            protected override WebRequest GetWebRequest(Uri uri)
+            {
+                var r = base.GetWebRequest(uri);
+                r.Timeout = 10_000;
+                return r;
             }
         }
     }

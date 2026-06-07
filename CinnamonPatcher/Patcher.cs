@@ -19,6 +19,9 @@ namespace CinnamonPatcher
         [DllImport("urlmon.dll", CharSet = CharSet.Unicode)]
         static extern int URLDownloadToFile(IntPtr pCaller, string szURL, string szFileName, uint dwReserved, IntPtr lpfnCB);
 
+        [DllImport("wininet.dll", SetLastError = true)]
+        static extern bool InternetSetOption(IntPtr hInternet, int dwOption, ref int lpBuffer, int dwBufferLength);
+
         public static IEnumerable<string> TargetDLLs => Array.Empty<string>();
         public static void Patch(AssemblyDefinition _) { }
 
@@ -26,18 +29,27 @@ namespace CinnamonPatcher
         {
             Log = Logger.CreateLogSource("CinnamonPatcher");
             Log.LogInfo("[CinnamonPatcher] Checking for updates...");
+
+            int timeout = 10_000;
+            InternetSetOption(IntPtr.Zero, 2, ref timeout, sizeof(int));  // INTERNET_OPTION_CONNECT_TIMEOUT
+            InternetSetOption(IntPtr.Zero, 5, ref timeout, sizeof(int));  // INTERNET_OPTION_SEND_TIMEOUT
+            InternetSetOption(IntPtr.Zero, 6, ref timeout, sizeof(int));  // INTERNET_OPTION_RECEIVE_TIMEOUT
+
+            var results = new List<string>();
             try
             {
                 foreach (var dllPath in Directory.GetFiles(Paths.PluginPath, "*.dll", SearchOption.AllDirectories))
-                    TryUpdate(dllPath);
+                    TryUpdate(dllPath, results);
             }
             catch (Exception ex)
             {
                 Log.LogWarning($"[CinnamonPatcher] {ex.Message}");
             }
+
+            WriteUpdateLog(results);
         }
 
-        static void TryUpdate(string dllPath)
+        static void TryUpdate(string dllPath, List<string> results)
         {
             string repo = null, asmName = null;
             Version current = null;
@@ -71,7 +83,12 @@ namespace CinnamonPatcher
                     $"https://api.github.com/repos/{repo}/releases/latest",
                     tempJson, 0, IntPtr.Zero);
 
-                if (hr != 0) { Log.LogWarning($"[CinnamonPatcher] {dllName} fetch failed (0x{hr:X8})."); return; }
+                if (hr != 0)
+                {
+                    Log.LogWarning($"[CinnamonPatcher] {dllName} fetch failed (0x{hr:X8}).");
+                    results.Add($"[FAILED] {dllName}: fetch error 0x{hr:X8}");
+                    return;
+                }
 
                 string json = File.ReadAllText(tempJson);
                 File.Delete(tempJson);
@@ -83,6 +100,7 @@ namespace CinnamonPatcher
                 if (latest <= current)
                 {
                     Log.LogInfo($"[CinnamonPatcher] {dllName} up to date (v{current}).");
+                    results.Add($"[OK] {dllName} v{current}");
                     return;
                 }
 
@@ -90,19 +108,43 @@ namespace CinnamonPatcher
 
                 var dlMatch = Regex.Match(json,
                     "\"browser_download_url\"\\s*:\\s*\"(https://[^\"]+/" + Regex.Escape(dllName) + ")\"");
-                if (!dlMatch.Success) { Log.LogWarning($"[CinnamonPatcher] No asset '{dllName}' in release."); return; }
+                if (!dlMatch.Success)
+                {
+                    Log.LogWarning($"[CinnamonPatcher] No asset '{dllName}' in release.");
+                    results.Add($"[FAILED] {dllName}: no asset in release");
+                    return;
+                }
 
                 hr = URLDownloadToFile(IntPtr.Zero, dlMatch.Groups[1].Value, dllPath, 0, IntPtr.Zero);
                 if (hr == 0)
+                {
                     Log.LogInfo($"[CinnamonPatcher] {dllName} updated to v{latest}! Loading new version now.");
+                    results.Add($"[UPDATED] {dllName} v{current} -> v{latest}");
+                }
                 else
+                {
                     Log.LogWarning($"[CinnamonPatcher] Download failed (0x{hr:X8}).");
+                    results.Add($"[FAILED] {dllName}: download error 0x{hr:X8}");
+                }
             }
             catch (Exception ex)
             {
                 Log.LogWarning($"[CinnamonPatcher] {dllName}: {ex.Message}");
+                results.Add($"[FAILED] {dllName}: {ex.Message}");
                 try { if (File.Exists(tempJson)) File.Delete(tempJson); } catch { }
             }
+        }
+
+        static void WriteUpdateLog(List<string> results)
+        {
+            try
+            {
+                string logPath = Path.Combine(Paths.BepInExRootPath, "CinnamonUpdate.log");
+                var lines = new List<string> { $"Cinnamon update check — {DateTime.Now:yyyy-MM-dd HH:mm:ss}" };
+                lines.AddRange(results);
+                File.WriteAllLines(logPath, lines);
+            }
+            catch { }
         }
     }
 }
