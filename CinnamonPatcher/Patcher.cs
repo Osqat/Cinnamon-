@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using BepInEx;
 using BepInEx.Logging;
 using Mono.Cecil;
 
-[assembly: System.Reflection.AssemblyVersion("0.10.6")]
+[assembly: System.Reflection.AssemblyVersion("0.10.7")]
 
 namespace CinnamonPatcher
 {
@@ -196,7 +197,8 @@ namespace CinnamonPatcher
             try
             {
                 string logPath = Path.Combine(Paths.BepInExRootPath, "CinnamonUpdate.log");
-                var lines = new List<string> { $"Cinnamon update check — {DateTime.Now:yyyy-MM-dd HH:mm:ss}" };
+                string version = Assembly.GetExecutingAssembly().GetName().Version.ToString(3);
+                var lines = new List<string> { $"=== CinnamonPatcher v{version} — {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===" };
                 lines.AddRange(results);
                 File.WriteAllLines(logPath, lines);
             }

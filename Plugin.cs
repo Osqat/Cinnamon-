@@ -6,21 +6,26 @@ using System;
 using System.IO;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyVersion("0.10.6")]
+[assembly: System.Reflection.AssemblyVersion("0.10.7")]
 [assembly: Cinnamon.AutoUpdate("Osqat/Cinnamon-")]
 
 namespace Cinnamon
 {
-    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.10.6")]  // NUMERIC ONLY — BepInEx calls Version.Parse()
+    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.10.7")]  // NUMERIC ONLY — BepInEx calls Version.Parse()
     public class Plugin : BaseUnityPlugin
     {
         internal const string PreRelease = "-beta"; // set to "" for stable releases
         internal static ManualLogSource Log;
         internal static string VersionString => Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + PreRelease;
 
+        static byte[] _pendingPatcherBytes;
+        static string _pendingPatcherPath;
+
         void Awake()
         {
             Log = Logger;
+            string logPath = Path.Combine(BepInEx.Paths.BepInExRootPath, "CinnamonUpdate.log");
+            BepInEx.Logging.Logger.Listeners.Add(new CinnamonLogListener(logPath, VersionString));
             Log.LogInfo("[Cinnamon] loaded.");
             new Harmony("com.osqat.cinnamon").PatchAll();
         }
@@ -29,6 +34,18 @@ namespace Cinnamon
         {
             ExtractPatcher();
             Updater.CheckAsync(BepInEx.Paths.PluginPath, Log);
+        }
+
+        void OnApplicationQuit()
+        {
+            if (_pendingPatcherBytes == null) return;
+            try
+            {
+                try { File.SetAttributes(_pendingPatcherPath, FileAttributes.Normal); } catch { }
+                try { File.Delete(_pendingPatcherPath); } catch { }
+                File.WriteAllBytes(_pendingPatcherPath, _pendingPatcherBytes);
+            }
+            catch { }
         }
 
         static void ExtractPatcher()
@@ -55,18 +72,10 @@ namespace Cinnamon
                     }
                     catch { }
 
-                    // Stage 2: patcher is locked — write it when the game exits (file handles released)
+                    // Stage 2: patcher is locked — write it when Unity quits (OnApplicationQuit)
                     Log.LogInfo("[Cinnamon] Patcher update scheduled for game exit.");
-                    AppDomain.CurrentDomain.ProcessExit += (s, e) =>
-                    {
-                        try
-                        {
-                            try { File.SetAttributes(patcherPath, FileAttributes.Normal); } catch { }
-                            try { File.Delete(patcherPath); } catch { }
-                            File.WriteAllBytes(patcherPath, bytes);
-                        }
-                        catch { }
-                    };
+                    _pendingPatcherBytes = bytes;
+                    _pendingPatcherPath = patcherPath;
                 }
             }
             catch (Exception ex) { Log.LogWarning($"[Cinnamon] Failed to extract patcher: {ex.Message}"); }
@@ -83,6 +92,27 @@ namespace Cinnamon
                 return true;
             }
             catch { return false; }
+        }
+
+        class CinnamonLogListener : ILogListener
+        {
+            readonly string _path;
+
+            public CinnamonLogListener(string path, string version)
+            {
+                _path = path;
+                try { File.AppendAllText(path, $"\n=== Cinnamon {version} ===\n"); }
+                catch { }
+            }
+
+            public void LogEvent(object sender, LogEventArgs e)
+            {
+                if (!e.Source.SourceName.Contains("Cinnamon")) return;
+                try { File.AppendAllText(_path, $"[{e.Level}] {e.Data}\n"); }
+                catch { }
+            }
+
+            public void Dispose() { }
         }
     }
 }
