@@ -6,12 +6,12 @@ using System;
 using System.IO;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyVersion("0.10.2")]
+[assembly: System.Reflection.AssemblyVersion("0.10.3")]
 [assembly: Cinnamon.AutoUpdate("Osqat/Cinnamon-")]
 
 namespace Cinnamon
 {
-    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.10.2")]
+    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.10.3")]  // NUMERIC ONLY — BepInEx calls Version.Parse()
     public class Plugin : BaseUnityPlugin
     {
         internal const string PreRelease = "-beta"; // set to "" for stable releases
@@ -36,27 +36,45 @@ namespace Cinnamon
             try
             {
                 string patcherPath = Path.Combine(BepInEx.Paths.PatcherPluginPath, "CinnamonPatcher.dll");
+                string pendingPath = patcherPath + ".pending";
                 using (var src = typeof(Plugin).Assembly.GetManifestResourceStream("CinnamonPatcher.dll"))
                 {
                     if (src == null) { Log.LogWarning("[Cinnamon] Embedded patcher not found."); return; }
                     var bytes = new byte[src.Length];
                     src.Read(bytes, 0, bytes.Length);
+
+                    if (FileMatchesBytes(patcherPath, bytes)) return;
+
+                    // Stage 1: direct write (works on first install; file not locked yet)
                     try
                     {
+                        if (File.Exists(patcherPath))
+                            File.SetAttributes(patcherPath, FileAttributes.Normal);
                         File.WriteAllBytes(patcherPath, bytes);
+                        Log.LogDebug("[Cinnamon] Patcher refreshed.");
+                        return;
                     }
-                    catch
-                    {
-                        File.Delete(patcherPath);
-                        File.WriteAllBytes(patcherPath, bytes);
-                    }
+                    catch { }
+
+                    // Stage 2: file is locked by Mono loader — write .pending; patcher applies on next launch
+                    File.WriteAllBytes(pendingPath, bytes);
+                    Log.LogInfo("[Cinnamon] Patcher staged for update — will apply on next launch.");
                 }
-                Log.LogDebug("[Cinnamon] Patcher refreshed.");
             }
-            catch (Exception ex)
+            catch (Exception ex) { Log.LogWarning($"[Cinnamon] Failed to extract patcher: {ex.Message}"); }
+        }
+
+        static bool FileMatchesBytes(string path, byte[] bytes)
+        {
+            try
             {
-                Log.LogWarning($"[Cinnamon] Failed to extract patcher: {ex.Message}");
+                var existing = File.ReadAllBytes(path);
+                if (existing.Length != bytes.Length) return false;
+                for (int i = 0; i < bytes.Length; i++)
+                    if (existing[i] != bytes[i]) return false;
+                return true;
             }
+            catch { return false; }
         }
     }
 }
