@@ -74,7 +74,7 @@ namespace Cinnamon
                 {
                     wc.Proxy = null;
                     wc.Headers.Add(HttpRequestHeader.UserAgent, "UCH-CinnamonUpdater/1.0");
-                    json = wc.DownloadString($"https://api.github.com/repos/{repo}/releases/latest");
+                    json = wc.DownloadString($"https://api.github.com/repos/{repo}/releases?per_page=1");
                 }
             }
             catch (Exception ex)

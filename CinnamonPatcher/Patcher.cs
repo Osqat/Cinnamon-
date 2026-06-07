@@ -80,7 +80,7 @@ namespace CinnamonPatcher
             try
             {
                 int hr = URLDownloadToFile(IntPtr.Zero,
-                    $"https://api.github.com/repos/{repo}/releases/latest",
+                    $"https://api.github.com/repos/{repo}/releases?per_page=1",
                     tempJson, 0, IntPtr.Zero);
 
                 if (hr != 0)
