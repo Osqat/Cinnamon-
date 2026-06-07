@@ -8,7 +8,7 @@ using BepInEx;
 using BepInEx.Logging;
 using Mono.Cecil;
 
-[assembly: System.Reflection.AssemblyVersion("0.10.7")]
+[assembly: System.Reflection.AssemblyVersion("0.10.8")]
 
 namespace CinnamonPatcher
 {

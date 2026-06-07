@@ -3,22 +3,23 @@ using BepInEx.Logging;
 using Cinnamon.UI;
 using HarmonyLib;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Text;
 
-[assembly: System.Reflection.AssemblyVersion("0.10.7")]
+[assembly: System.Reflection.AssemblyVersion("0.10.8")]
 [assembly: Cinnamon.AutoUpdate("Osqat/Cinnamon-")]
 
 namespace Cinnamon
 {
-    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.10.7")]  // NUMERIC ONLY — BepInEx calls Version.Parse()
+    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.10.8")]  // NUMERIC ONLY — BepInEx calls Version.Parse()
     public class Plugin : BaseUnityPlugin
     {
         internal const string PreRelease = "-beta"; // set to "" for stable releases
         internal static ManualLogSource Log;
         internal static string VersionString => Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + PreRelease;
 
-        static byte[] _pendingPatcherBytes;
         static string _pendingPatcherPath;
 
         void Awake()
@@ -38,14 +39,36 @@ namespace Cinnamon
 
         void OnApplicationQuit()
         {
-            if (_pendingPatcherBytes == null) return;
+            if (_pendingPatcherPath == null) return;
+            string pendingPath = _pendingPatcherPath + ".pending";
+            if (!File.Exists(pendingPath)) return;
             try
             {
-                try { File.SetAttributes(_pendingPatcherPath, FileAttributes.Normal); } catch { }
-                try { File.Delete(_pendingPatcherPath); } catch { }
-                File.WriteAllBytes(_pendingPatcherPath, _pendingPatcherBytes);
+                // Mono holds the patcher DLL memory-mapped for the entire process lifetime —
+                // any write to it fails until the process exits. Spawn a cmd that polls
+                // until this PID disappears, then moves .pending into place.
+                int pid = Process.GetCurrentProcess().Id;
+                string batPath = Path.Combine(Path.GetTempPath(), "CinnamonPatcherUpdate.bat");
+                var bat = new StringBuilder();
+                bat.Append("@echo off\r\n");
+                bat.Append(":wait\r\n");
+                bat.Append($"tasklist /FI \"PID eq {pid}\" /FO csv 2>nul | findstr /I \"{pid}\" >nul\r\n");
+                bat.Append("if %errorlevel% equ 0 (timeout /t 1 /nobreak >nul & goto wait)\r\n");
+                bat.Append($"move /y \"{pendingPath}\" \"{_pendingPatcherPath}\"\r\n");
+                bat.Append("del \"%~f0\"\r\n");
+                File.WriteAllText(batPath, bat.ToString(), Encoding.ASCII);
+                Process.Start(new ProcessStartInfo {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"{batPath}\"",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                Log.LogInfo("[Cinnamon] Patcher updater launched — effective next launch.");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.LogWarning($"[Cinnamon] Failed to launch patcher updater: {ex.Message}");
+            }
         }
 
         static void ExtractPatcher()
@@ -59,7 +82,12 @@ namespace Cinnamon
                     var bytes = new byte[src.Length];
                     src.Read(bytes, 0, bytes.Length);
 
-                    if (FileMatchesBytes(patcherPath, bytes)) return;
+                    if (FileMatchesBytes(patcherPath, bytes))
+                    {
+                        // Clean up any leftover .pending from a previous session
+                        try { File.Delete(patcherPath + ".pending"); } catch { }
+                        return;
+                    }
 
                     // Stage 1: direct write (works on first install — patcher not yet loaded)
                     try
@@ -72,9 +100,12 @@ namespace Cinnamon
                     }
                     catch { }
 
-                    // Stage 2: patcher is locked — write it when Unity quits (OnApplicationQuit)
-                    Log.LogInfo("[Cinnamon] Patcher update scheduled for game exit.");
-                    _pendingPatcherBytes = bytes;
+                    // Stage 2: patcher DLL is memory-mapped for this entire process — write
+                    // a .pending file now; OnApplicationQuit spawns cmd to apply it after exit.
+                    string pendingPath = patcherPath + ".pending";
+                    try { File.WriteAllBytes(pendingPath, bytes); }
+                    catch (Exception ex) { Log.LogWarning($"[Cinnamon] Could not stage patcher update: {ex.Message}"); return; }
+                    Log.LogInfo("[Cinnamon] Patcher update staged — will apply on game exit.");
                     _pendingPatcherPath = patcherPath;
                 }
             }
