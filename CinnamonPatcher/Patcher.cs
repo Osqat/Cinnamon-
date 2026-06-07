@@ -1,14 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using BepInEx;
 using BepInEx.Logging;
 using Mono.Cecil;
 
-[assembly: System.Reflection.AssemblyVersion("0.10.8")]
+[assembly: System.Reflection.AssemblyVersion("0.10.9")]
 
 namespace CinnamonPatcher
 {
@@ -47,11 +49,12 @@ namespace CinnamonPatcher
                 Log.LogWarning($"[CinnamonPatcher] {ex.Message}");
             }
 
-            // Fallback: if Cinnamon.dll wasn't found anywhere in plugins, install it fresh
+            // If Cinnamon.dll is gone the user uninstalled — schedule patcher self-removal
             if (Directory.GetFiles(Paths.PluginPath, "Cinnamon.dll", SearchOption.AllDirectories).Length == 0)
             {
-                Log.LogInfo("[CinnamonPatcher] Cinnamon.dll not found — installing...");
-                InstallCinnamon(results);
+                Log.LogInfo("[CinnamonPatcher] Cinnamon.dll not found — scheduling patcher removal on game exit.");
+                results.Add("[REMOVED] CinnamonPatcher scheduled for removal");
+                ScheduleSelfDelete();
             }
 
             WriteUpdateLog(results);
@@ -143,52 +146,34 @@ namespace CinnamonPatcher
             }
         }
 
-        static void InstallCinnamon(List<string> results)
+        // Spawn a hidden cmd that waits for this PID to exit, then deletes CinnamonPatcher.dll.
+        // Mono holds the DLL memory-mapped for the entire process — deletion only works after exit.
+        static void ScheduleSelfDelete()
         {
-            const string repo = "Osqat/Cinnamon-";
-            string installPath = Path.Combine(Paths.PluginPath, "Cinnamon", "Cinnamon.dll");
-            string tempJson = Path.Combine(Path.GetTempPath(), "CinnamonPatcher_install.json");
             try
             {
-                int hr = URLDownloadToFile(IntPtr.Zero,
-                    $"https://api.github.com/repos/{repo}/releases?per_page=1",
-                    tempJson, 0, IntPtr.Zero);
-
-                if (hr != 0)
-                {
-                    results.Add($"[FAILED] Cinnamon install: fetch error 0x{hr:X8}");
-                    return;
-                }
-
-                string json = File.ReadAllText(tempJson);
-                File.Delete(tempJson);
-
-                var dlMatch = Regex.Match(json,
-                    "\"browser_download_url\"\\s*:\\s*\"(https://[^\"]+/Cinnamon\\.dll)\"");
-                if (!dlMatch.Success)
-                {
-                    results.Add("[FAILED] Cinnamon install: no asset in release");
-                    return;
-                }
-
-                string dir = Path.GetDirectoryName(installPath);
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-
-                hr = URLDownloadToFile(IntPtr.Zero, dlMatch.Groups[1].Value, installPath, 0, IntPtr.Zero);
-                if (hr == 0)
-                {
-                    Log.LogInfo("[CinnamonPatcher] Cinnamon.dll installed.");
-                    results.Add("[INSTALLED] Cinnamon.dll");
-                }
-                else
-                {
-                    results.Add($"[FAILED] Cinnamon install: download error 0x{hr:X8}");
-                }
+                string selfPath = Assembly.GetExecutingAssembly().Location;
+                int pid = Process.GetCurrentProcess().Id;
+                string batPath = Path.Combine(Path.GetTempPath(), "CinnamonPatcherRemove.bat");
+                var bat = new StringBuilder();
+                bat.Append("@echo off\r\n");
+                bat.Append(":wait\r\n");
+                bat.Append($"tasklist /FI \"PID eq {pid}\" /FO csv 2>nul | findstr /I \"{pid}\" >nul\r\n");
+                bat.Append("if %errorlevel% equ 0 (timeout /t 1 /nobreak >nul & goto wait)\r\n");
+                bat.Append($"del /f /q \"{selfPath}\"\r\n");
+                bat.Append("del \"%~f0\"\r\n");
+                File.WriteAllText(batPath, bat.ToString(), Encoding.ASCII);
+                Process.Start(new ProcessStartInfo {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"{batPath}\"",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                Log.LogInfo("[CinnamonPatcher] Removal scheduled for game exit.");
             }
             catch (Exception ex)
             {
-                results.Add($"[FAILED] Cinnamon install: {ex.Message}");
-                try { if (File.Exists(tempJson)) File.Delete(tempJson); } catch { }
+                Log.LogWarning($"[CinnamonPatcher] Failed to schedule removal: {ex.Message}");
             }
         }
 
