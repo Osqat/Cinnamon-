@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using BepInEx;
 using BepInEx.Logging;
 using Mono.Cecil;
 
-[assembly: System.Reflection.AssemblyVersion("0.10.5")]
+[assembly: System.Reflection.AssemblyVersion("0.10.6")]
 
 namespace CinnamonPatcher
 {
@@ -29,26 +28,6 @@ namespace CinnamonPatcher
         public static void Initialize()
         {
             Log = Logger.CreateLogSource("CinnamonPatcher");
-
-            // Apply pending self-update written by the plugin on the previous launch
-            string selfPath = Assembly.GetExecutingAssembly().Location;
-            string selfPending = selfPath + ".pending";
-            if (File.Exists(selfPending))
-            {
-                try
-                {
-                    if (File.Exists(selfPath))
-                        File.SetAttributes(selfPath, FileAttributes.Normal);
-                    File.Delete(selfPath);
-                    File.Move(selfPending, selfPath);
-                    Log.LogInfo("[CinnamonPatcher] Patcher updated — active next launch.");
-                }
-                catch (Exception ex)
-                {
-                    Log.LogWarning($"[CinnamonPatcher] Could not apply pending update: {ex.Message}");
-                }
-            }
-
             Log.LogInfo("[CinnamonPatcher] Checking for updates...");
 
             int timeout = 10_000;
