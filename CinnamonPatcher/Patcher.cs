@@ -8,7 +8,7 @@ using BepInEx;
 using BepInEx.Logging;
 using Mono.Cecil;
 
-[assembly: System.Reflection.AssemblyVersion("0.10.4")]
+[assembly: System.Reflection.AssemblyVersion("0.10.5")]
 
 namespace CinnamonPatcher
 {
@@ -65,6 +65,13 @@ namespace CinnamonPatcher
             catch (Exception ex)
             {
                 Log.LogWarning($"[CinnamonPatcher] {ex.Message}");
+            }
+
+            // Fallback: if Cinnamon.dll wasn't found anywhere in plugins, install it fresh
+            if (Directory.GetFiles(Paths.PluginPath, "Cinnamon.dll", SearchOption.AllDirectories).Length == 0)
+            {
+                Log.LogInfo("[CinnamonPatcher] Cinnamon.dll not found — installing...");
+                InstallCinnamon(results);
             }
 
             WriteUpdateLog(results);
@@ -152,6 +159,55 @@ namespace CinnamonPatcher
             {
                 Log.LogWarning($"[CinnamonPatcher] {dllName}: {ex.Message}");
                 results.Add($"[FAILED] {dllName}: {ex.Message}");
+                try { if (File.Exists(tempJson)) File.Delete(tempJson); } catch { }
+            }
+        }
+
+        static void InstallCinnamon(List<string> results)
+        {
+            const string repo = "Osqat/Cinnamon-";
+            string installPath = Path.Combine(Paths.PluginPath, "Cinnamon", "Cinnamon.dll");
+            string tempJson = Path.Combine(Path.GetTempPath(), "CinnamonPatcher_install.json");
+            try
+            {
+                int hr = URLDownloadToFile(IntPtr.Zero,
+                    $"https://api.github.com/repos/{repo}/releases?per_page=1",
+                    tempJson, 0, IntPtr.Zero);
+
+                if (hr != 0)
+                {
+                    results.Add($"[FAILED] Cinnamon install: fetch error 0x{hr:X8}");
+                    return;
+                }
+
+                string json = File.ReadAllText(tempJson);
+                File.Delete(tempJson);
+
+                var dlMatch = Regex.Match(json,
+                    "\"browser_download_url\"\\s*:\\s*\"(https://[^\"]+/Cinnamon\\.dll)\"");
+                if (!dlMatch.Success)
+                {
+                    results.Add("[FAILED] Cinnamon install: no asset in release");
+                    return;
+                }
+
+                string dir = Path.GetDirectoryName(installPath);
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+                hr = URLDownloadToFile(IntPtr.Zero, dlMatch.Groups[1].Value, installPath, 0, IntPtr.Zero);
+                if (hr == 0)
+                {
+                    Log.LogInfo("[CinnamonPatcher] Cinnamon.dll installed.");
+                    results.Add("[INSTALLED] Cinnamon.dll");
+                }
+                else
+                {
+                    results.Add($"[FAILED] Cinnamon install: download error 0x{hr:X8}");
+                }
+            }
+            catch (Exception ex)
+            {
+                results.Add($"[FAILED] Cinnamon install: {ex.Message}");
                 try { if (File.Exists(tempJson)) File.Delete(tempJson); } catch { }
             }
         }
