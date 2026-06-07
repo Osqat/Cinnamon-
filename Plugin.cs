@@ -6,12 +6,12 @@ using System;
 using System.IO;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyVersion("0.10.3")]
+[assembly: System.Reflection.AssemblyVersion("0.10.4")]
 [assembly: Cinnamon.AutoUpdate("Osqat/Cinnamon-")]
 
 namespace Cinnamon
 {
-    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.10.3")]  // NUMERIC ONLY — BepInEx calls Version.Parse()
+    [BepInPlugin("com.osqat.cinnamon", "Cinnamon", "0.10.4")]  // NUMERIC ONLY — BepInEx calls Version.Parse()
     public class Plugin : BaseUnityPlugin
     {
         internal const string PreRelease = "-beta"; // set to "" for stable releases

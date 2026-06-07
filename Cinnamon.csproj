@@ -50,12 +50,6 @@
     </Reference>
   </ItemGroup>
 
-  <PropertyGroup>
-    <CinnamonPluginsDir>$(UCHfolder)BepInEx\plugins\Cinnamon</CinnamonPluginsDir>
-    <PostBuildEvent>if not exist "$(CinnamonPluginsDir)" mkdir "$(CinnamonPluginsDir)"
-copy "Cinnamon.dll" "$(CinnamonPluginsDir)\Cinnamon.dll" /y</PostBuildEvent>
-  </PropertyGroup>
-
   <!-- Exclude CinnamonPatcher source from Cinnamon's own compilation -->
   <ItemGroup>
     <Compile Remove="CinnamonPatcher\**" />
